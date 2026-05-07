@@ -1,7 +1,6 @@
 from .base import Pattern
 from .forty_two import FORTY_TWO
 from .pacman import PACMAN
-from .vador import VADOR
 from .invader import INVADER
 
 
@@ -9,7 +8,6 @@ from .invader import INVADER
 PATTERNS: dict[str, Pattern] = {
     FORTY_TWO.name: FORTY_TWO,
     PACMAN.name: PACMAN,
-    VADOR.name: VADOR,
     INVADER.name: INVADER,
 }
 
@@ -31,6 +29,5 @@ __all__ = [
     "list_patterns",
     "FORTY_TWO",
     "PACMAN",
-    "VADOR",
     "INVADER",
 ]

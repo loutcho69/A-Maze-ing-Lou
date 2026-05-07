@@ -37,3 +37,26 @@ class Pattern:
             for x, val in enumerate(row)
             if val == 1
         }
+
+    def scale(self, factor: int) -> "Pattern":
+        """Return a copy of this pattern enlarged by an integer factor.
+
+        Each pixel of the original grid is replaced by a factor x factor
+        block of identical pixels. So a 9x7 pattern at factor=2 becomes
+        an 18x14 pattern. factor=1 returns an identical copy.
+
+        Note: at factor >= 3, blocks of empty cells in the original
+        produce 3x3 (or larger) open areas, which violate the maze
+        rules. This method does not enforce that constraint -- callers
+        must restrict factor to {1, 2} or post-process the output.
+        """
+        if factor < 1:
+            raise ValueError(f"scale factor must be >= 1, got {factor}")
+        if factor == 1:
+            return Pattern(name=self.name, grid=self.grid)
+        new_grid = tuple(
+            tuple(val for val in row for _ in range(factor))
+            for row in self.grid
+            for _ in range(factor)
+        )
+        return Pattern(name=self.name, grid=new_grid)

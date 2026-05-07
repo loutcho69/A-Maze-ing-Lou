@@ -62,6 +62,21 @@ def _cell_inside(maze, x: int, y: int, pattern_color: str) -> str:
     return DARK
 
 
+def _path_edges(maze) -> set[frozenset[tuple[int, int]]]:
+    """Build the set of consecutive cell-pairs along the solution path.
+
+    Each pair is stored as a frozenset so that order does not matter
+    when looking up an edge between two cells.
+    """
+    if not maze.is_path:
+        return set()
+    edges: set[frozenset[tuple[int, int]]] = set()
+    p = maze.path_solve
+    for i in range(len(p) - 1):
+        edges.add(frozenset((p[i], p[i + 1])))
+    return edges
+
+
 def print_maze(maze, color: str, pattern_color: str | None = None) -> None:
     """Render the maze to stdout using ANSI block characters.
 
@@ -73,6 +88,10 @@ def print_maze(maze, color: str, pattern_color: str | None = None) -> None:
     """
     if pattern_color is None:
         pattern_color = color
+
+    # An open passage between two cells is highlighted as path only
+    # when those two cells are consecutive in the solution path.
+    edges = _path_edges(maze)
 
     line_bottom = ''
     for y in range(maze.height):
@@ -94,18 +113,21 @@ def print_maze(maze, color: str, pattern_color: str | None = None) -> None:
                 else:
                     line0 += color
             else:
-                # No N nor W wall: top-left of cell is open.
-                if (x - 1, y - 1) in maze.path_solve and maze.is_path:
-                    line0 += PATH_CHAR
-                else:
-                    line0 += DARK
+                # No N nor W wall: this corner is empty space. It only
+                # belongs to the path if both diagonal neighbors are on
+                # the path AND adjacent in the path -- but a corner
+                # never sits on a single edge of the path, so we just
+                # render dark space here.
+                line0 += DARK
 
             # --- line0, second char: north wall of this cell ---
             if n_closed:
                 line0 += _wall_color(maze, (x, y), (x, y - 1),
                                      color, pattern_color)
             else:
-                if (x, y - 1) in maze.path_solve and maze.is_path:
+                # N wall is open: it's part of the path only if the
+                # edge between (x, y) and (x, y-1) is on the path.
+                if frozenset(((x, y), (x, y - 1))) in edges:
                     line0 += PATH_CHAR
                 else:
                     line0 += DARK
@@ -115,7 +137,8 @@ def print_maze(maze, color: str, pattern_color: str | None = None) -> None:
                 line1 += _wall_color(maze, (x, y), (x - 1, y),
                                      color, pattern_color)
             else:
-                if (x - 1, y) in maze.path_solve and maze.is_path:
+                # W wall is open: same logic, check the edge.
+                if frozenset(((x, y), (x - 1, y))) in edges:
                     line1 += PATH_CHAR
                 else:
                     line1 += DARK

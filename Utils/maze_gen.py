@@ -44,7 +44,11 @@ class MazeGenerator:
         self.entry = entry
         self.exit = exit
         self.perfect = perfect
-        self.pattern = pattern
+        # Auto-scale the pattern to roughly 2/5 of the maze width
+        # while always leaving a 1-cell margin on every side. Falls
+        # back to x1 if x2 doesn't fit. If even x1 doesn't fit,
+        # _compute_pattern_cells() will raise PatternTooLargeError.
+        self.pattern = self._auto_scale_pattern(pattern)
         # Local RNG: seeded for reproducibility, or unseeded for random.
         # Using a local Random instance instead of the global random
         # module avoids polluting global state.
@@ -54,6 +58,44 @@ class MazeGenerator:
         # Cells (in maze coordinates) that belong to the pattern.
         self.pattern_cells: set[tuple[int, int]] = self._compute_pattern_cells()
         self.maze = self.create_maze()
+
+    # ------------------------------------------------------------------ #
+    # Pattern auto-scaling
+    # ------------------------------------------------------------------ #
+    def _auto_scale_pattern(
+        self, pattern: Pattern | None
+    ) -> Pattern | None:
+        """Pick the integer scale that puts the pattern closest to
+        2/5 of the maze width, among scales that fit (with 1-cell
+        margin). Allowed scales: x1 and x2.
+
+        Going to x3 or beyond is intentionally avoided: empty pixels
+        of the original pattern would expand into 3x3+ open areas,
+        which violate the maze rules.
+
+        Returns the scaled pattern, or None if `pattern` was None.
+        If even x1 does not fit, this method returns the x1 pattern
+        and lets _compute_pattern_cells() raise the actual error
+        with a clear message.
+        """
+        if pattern is None:
+            return None
+
+        target_width = self.width * 2 / 5  # ~40% of the maze width
+        best: Pattern = pattern  # x1 fallback
+        best_score = abs(pattern.width - target_width)
+
+        for factor in (2,):  # only x2 considered beyond x1
+            candidate = pattern.scale(factor)
+            # Fits with 1-cell margin?
+            if (candidate.width + 2 > self.width
+                    or candidate.height + 2 > self.height):
+                continue
+            score = abs(candidate.width - target_width)
+            if score < best_score:
+                best = candidate
+                best_score = score
+        return best
 
     # ------------------------------------------------------------------ #
     # Pattern placement
@@ -169,20 +211,38 @@ class MazeGenerator:
 
         x, y = self.entry
 
-        def itinary(x: int, y: int) -> None:
-            is_visited[y][x] = True
-            direction = [Dir.N, Dir.E, Dir.S, Dir.W]
-            self._rng.shuffle(direction)
-            for dirs in direction:
-                next_x = x + self.DX[dirs]
-                next_y = y + self.DY[dirs]
-                if self.width > next_x >= 0 and self.height > next_y >= 0:
-                    if not is_visited[next_y][next_x]:
-                        maze[y][x] -= dirs.value
-                        maze[next_y][next_x] -= self.opp[dirs].value
-                        itinary(next_x, next_y)
+        # Iterative DFS using an explicit stack. Each stack frame holds
+        # the current cell and an iterator over the remaining directions
+        # to try (already shuffled). This mirrors the recursive version
+        # exactly while avoiding Python's recursion limit on large mazes.
+        is_visited[y][x] = True
+        directions = [Dir.N, Dir.E, Dir.S, Dir.W]
+        self._rng.shuffle(directions)
+        stack: list[tuple[int, int, list[Dir]]] = [(x, y, directions)]
 
-        itinary(x, y)
+        while stack:
+            cx, cy, dirs_left = stack[-1]
+            advanced = False
+            while dirs_left:
+                d = dirs_left.pop(0)
+                nx = cx + self.DX[d]
+                ny = cy + self.DY[d]
+                if not (0 <= nx < self.width and 0 <= ny < self.height):
+                    continue
+                if is_visited[ny][nx]:
+                    continue
+                # Carve the wall and descend into the neighbor.
+                maze[cy][cx] -= d.value
+                maze[ny][nx] -= self.opp[d].value
+                is_visited[ny][nx] = True
+                next_dirs = [Dir.N, Dir.E, Dir.S, Dir.W]
+                self._rng.shuffle(next_dirs)
+                stack.append((nx, ny, next_dirs))
+                advanced = True
+                break
+            if not advanced:
+                stack.pop()
+
         self._ensure_connectivity(maze)
         if not self.perfect:
             self._carve_extra_passages(maze)
