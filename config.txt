@@ -1,0 +1,10 @@
+WIDTH=30
+HEIGHT=20
+ENTRY=0,0
+EXIT=29,19
+OUTPUT_FILE=maze.txt
+PERFECT=True
+# SEED is optional. Uncomment to make maze generation reproducible.
+# Each "Generate a new maze" then bumps the seed by 1, so you still
+# see different mazes during the session, but the sequence is fixed.
+#SEED=42
