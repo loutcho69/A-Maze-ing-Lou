@@ -1,16 +1,16 @@
 from .base import Pattern
 from .forty_two import FORTY_TWO
-from .footballer import FOOTBALLER
-from .basketball import BASKETBALL
-from .president import PRESIDENT
+from .pacman import PACMAN
+from .vador import VADOR
+from .invader import INVADER
 
 
 # Ordered registry: insertion order is used for menu numbering.
 PATTERNS: dict[str, Pattern] = {
     FORTY_TWO.name: FORTY_TWO,
-    FOOTBALLER.name: FOOTBALLER,
-    BASKETBALL.name: BASKETBALL,
-    PRESIDENT.name: PRESIDENT,
+    PACMAN.name: PACMAN,
+    VADOR.name: VADOR,
+    INVADER.name: INVADER,
 }
 
 
@@ -30,7 +30,7 @@ __all__ = [
     "get_pattern",
     "list_patterns",
     "FORTY_TWO",
-    "FOOTBALLER",
-    "BASKETBALL",
-    "PRESIDENT",
+    "PACMAN",
+    "VADOR",
+    "INVADER",
 ]
