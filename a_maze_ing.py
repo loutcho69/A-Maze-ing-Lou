@@ -25,6 +25,18 @@ def maze_gen(setting, pattern=None):
     return maze
 
 
+def write_output_file(maze, filename):
+    """Write the maze to the output file in the format specified by
+    the subject (IV.5). Errors are reported but don't crash the
+    program (the user can still interact with the maze).
+    """
+    try:
+        with open(filename, 'w') as f:
+            f.write(maze.to_output())
+    except OSError as err:
+        print(f"Could not write to '{filename}': {err}")
+
+
 if __name__ == "__main__":
     # Subject IV.2: program is invoked as `python3 a_maze_ing.py config.txt`.
     # The config filename is the only argument. Default to 'config.txt'
@@ -55,6 +67,7 @@ if __name__ == "__main__":
         print("The default pattern doesn't fit in this maze size.")
         print("Tip: increase WIDTH and HEIGHT in config.txt.")
         exit(1)
+    write_output_file(maze, setting.OUTPUT_FILE)
     print()
     print_maze(maze, list(Color)[color - 1].value,
                list(Color)[pat_color - 1].value)
@@ -69,6 +82,7 @@ if __name__ == "__main__":
                     print("Generation failed; keeping previous maze.")
                     continue
                 maze = new_maze
+                write_output_file(maze, setting.OUTPUT_FILE)
                 print()
                 print_maze(maze, list(Color)[color - 1].value,
                            list(Color)[pat_color - 1].value)
@@ -110,6 +124,7 @@ if __name__ == "__main__":
                     continue
                 pattern = new_pattern
                 maze = new_maze
+                write_output_file(maze, setting.OUTPUT_FILE)
                 print_maze(maze, list(Color)[color - 1].value,
                            list(Color)[pat_color - 1].value)
                 print_title()

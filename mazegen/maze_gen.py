@@ -261,3 +261,55 @@ class MazeGenerator:
             cur = parent[cur]
         path.reverse()
         return path
+
+    # ------------------------------------------------------------------ #
+    # Output file format (subject IV.5)
+    # ------------------------------------------------------------------ #
+    def _path_to_directions(self):
+        """Convert path_solve (list of cells) into a string of N/E/S/W
+        letters describing the moves taken from entry to exit.
+
+        For each consecutive pair of cells in the path, determine the
+        cardinal direction from the first to the second.
+        """
+        letters = []
+        for i in range(len(self.path_solve) - 1):
+            x1, y1 = self.path_solve[i]
+            x2, y2 = self.path_solve[i + 1]
+            dx = x2 - x1
+            dy = y2 - y1
+            if dx == 0 and dy == -1:
+                letters.append('N')
+            elif dx == 1 and dy == 0:
+                letters.append('E')
+            elif dx == 0 and dy == 1:
+                letters.append('S')
+            elif dx == -1 and dy == 0:
+                letters.append('W')
+            # If two consecutive cells aren't adjacent, the path is
+            # malformed; we silently skip (shouldn't happen with BFS).
+        return ''.join(letters)
+
+    def to_output(self):
+        """Format the maze for the output file as specified in IV.5.
+
+        - One hex digit per cell, encoded as bit 0=N, 1=E, 2=S, 3=W
+          (bit set = wall closed). Our internal cell values use the
+          exact same encoding, so we just hex() each value.
+        - Cells stored row by row, one row per line.
+        - Blank line.
+        - Entry coordinates "x,y".
+        - Exit coordinates "x,y".
+        - Shortest path as a string of N/E/S/W letters.
+        - Every line ends with '\\n'.
+        """
+        lines = []
+        for y in range(self.height):
+            row = ''.join(f'{self.maze[y][x]:X}' for x in range(self.width))
+            lines.append(row)
+        lines.append('')  # blank line separator
+        lines.append(f'{self.entry[0]},{self.entry[1]}')
+        lines.append(f'{self.exit[0]},{self.exit[1]}')
+        lines.append(self._path_to_directions())
+        # Trailing newline on every line, including the last.
+        return '\n'.join(lines) + '\n'
