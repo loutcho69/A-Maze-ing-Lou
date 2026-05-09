@@ -1,16 +1,23 @@
 from .data import Dir
 
+# ANSI block characters for cell rendering.
+ENTRY = '\033[32m█\033[0m'   # green
+EXIT = '\033[31m█\033[0m'    # red
+DARK = '\033[38;5;235m█\033[0m'
+PATH = '░'
 
-def print_title():
-    amazing_art = r"""
-  █████╗ ███╗   ███╗  █████╗ ███████╗ ██╗███╗   ██╗  ██████╗ 
- ██╔══██╗████╗ ████║ ██╔══██╗╚══███╔╝ ██║████╗  ██║ ██╔════╝ 
+_TITLE = r"""
+  █████╗ ███╗   ███╗  █████╗ ███████╗ ██╗███╗   ██╗  ██████╗
+ ██╔══██╗████╗ ████║ ██╔══██╗╚══███╔╝ ██║████╗  ██║ ██╔════╝
  ███████║██╔████╔██║ ███████║  ███╔╝  ██║██╔██╗ ██║ ██║  ███╗
  ██╔══██║██║╚██╔╝██║ ██╔══██║ ███╔╝   ██║██║╚██╗██║ ██║   ██║
  ██║  ██║██║ ╚═╝ ██║ ██║  ██║███████╗ ██║██║ ╚████║ ╚██████╔╝
- ╚═╝  ╚═╝╚═╝     ╚═╝ ╚═╝  ╚═╝╚══════╝ ╚═╝╚═╝  ╚═══╝  ╚═════╝ 
+ ╚═╝  ╚═╝╚═╝     ╚═╝ ╚═╝  ╚═╝╚══════╝ ╚═╝╚═╝  ╚═══╝  ╚═════╝
 """
-    print(f"\n{amazing_art}")
+
+
+def print_title():
+    print(f"\n{_TITLE}")
     print("                   A _ M A Z E _ I N G\n")
     print('1. Generate a new maze', end='   ')
     print('2. Show/hide path from entry to exit')
@@ -20,57 +27,36 @@ def print_title():
     print('6. Quit\n')
 
 
-def check_entry(x, y, maze):
-    if (x, y) == maze.entry:
-        return '\033[32m█\033[0m'
-    elif (x, y) == maze.exit:
-        return '\033[31m█\033[0m'
-    elif (x, y) in maze.path_solve and maze.is_path:
-        return '░'
-    return '\033[38;5;235m█\033[0m'
+def _cell(x, y, maze, pat_color):
+    """Char to render at the bottom-right of cell (x, y)."""
+    if (x, y) == maze.entry: return ENTRY
+    if (x, y) == maze.exit: return EXIT
+    if (x, y) in maze.pattern_cells: return pat_color
+    if (x, y) in maze.path_solve and maze.is_path: return PATH
+    return DARK
 
 
-def check_path(x, y, maze):
+def _on_path(x, y, maze):
+    """Char for an open passage at (x, y): path mark or dark."""
     if (x, y) in maze.path_solve and maze.is_path:
-        return '░'
-    return '\033[38;5;235m█\033[0m'
+        return PATH
+    return DARK
 
 
-def _is_pattern(maze, x, y):
-    """True if (x, y) is in the maze and belongs to the pattern."""
-    if not (0 <= x < maze.width and 0 <= y < maze.height):
-        return False
-    return (x, y) in maze.pattern_cells
-
-
-def _wall_color(maze, color, pattern_color, *cells):
-    """Return pattern_color if any of the given cells is in the pattern,
-    else the regular wall color. cells is a list of (x, y) tuples."""
-    for (x, y) in cells:
-        if _is_pattern(maze, x, y):
-            return pattern_color
+def _wcol(maze, color, pat_color, *cells):
+    """Pick pat_color if any of cells is in the pattern, else color."""
+    for (cx, cy) in cells:
+        if 0 <= cx < maze.width and 0 <= cy < maze.height \
+                and (cx, cy) in maze.pattern_cells:
+            return pat_color
     return color
 
 
-def _cell_inside(x, y, maze, pattern_color):
-    """Same as check_entry but renders pattern cells in pattern_color."""
-    if (x, y) == maze.entry:
-        return '\033[32m█\033[0m'
-    elif (x, y) == maze.exit:
-        return '\033[31m█\033[0m'
-    elif _is_pattern(maze, x, y):
-        return pattern_color
-    elif (x, y) in maze.path_solve and maze.is_path:
-        return '░'
-    return '\033[38;5;235m█\033[0m'
-
-
-def print_maze(maze, color, pattern_color=None) -> None:
-    """Render the maze. pattern_color is optional and defaults to color
-    (so without a pattern, rendering is identical to the original)."""
+def print_maze(maze, color, pattern_color=None):
+    """Render the maze. pattern_color defaults to color (so without a
+    pattern, rendering is identical to the original code)."""
     if pattern_color is None:
         pattern_color = color
-    has_pattern = bool(getattr(maze, 'pattern_cells', None))
 
     line_bottom = ''
     for y in range(maze.height):
@@ -78,80 +64,36 @@ def print_maze(maze, color, pattern_color=None) -> None:
         line1 = ''
         for x in range(maze.width):
             c = maze.maze[y][x]
-            # Pick wall colors for this cell. When no pattern, the
-            # color logic below collapses to the original behaviour
-            # because pattern_color == color.
-            if has_pattern:
-                # NW corner: any of the 4 cells touching the corner.
-                nw_col = _wall_color(
-                    maze, color, pattern_color,
-                    (x, y), (x - 1, y), (x, y - 1), (x - 1, y - 1)
-                )
-                # N wall: between (x,y) and (x, y-1).
-                n_col = _wall_color(
-                    maze, color, pattern_color, (x, y), (x, y - 1)
-                )
-                # W wall: between (x,y) and (x-1, y).
-                w_col = _wall_color(
-                    maze, color, pattern_color, (x, y), (x - 1, y)
-                )
-                cell_char = _cell_inside(x, y, maze, pattern_color)
-            else:
-                nw_col = color
-                n_col = color
-                w_col = color
-                cell_char = check_entry(x, y, maze)
+            # NW corner color: among the 4 cells touching it.
+            nw = _wcol(maze, color, pattern_color,
+                       (x, y), (x - 1, y), (x, y - 1), (x - 1, y - 1))
+            ncol = _wcol(maze, color, pattern_color, (x, y), (x, y - 1))
+            wcol = _wcol(maze, color, pattern_color, (x, y), (x - 1, y))
+            cell = _cell(x, y, maze, pattern_color)
 
-            if (c & Dir.N.value) and (c & Dir.W.value):
-                line0 += f'{nw_col}{n_col}'
-                line1 += f'{w_col}'
-                line1 += cell_char
-            elif (c & Dir.N.value) and not (c & Dir.W.value):
-                line0 += f'{nw_col}{n_col}'
-                if (x - 1, y) in maze.path_solve:
-                    line1 += check_path(x, y, maze)
-                else:
-                    line1 += '\033[38;5;235m█\033[0m'
-                line1 += cell_char
-            elif (c & Dir.W.value) and not (c & Dir.N.value):
-                line0 += f'{nw_col}'
-                if (x, y - 1) in maze.path_solve:
-                    line0 += check_path(x, y, maze)
-                else:
-                    line0 += '\033[38;5;235m█\033[0m'
-                line1 += f'{w_col}' + cell_char
-            elif not (c & Dir.N.value) and not (c & Dir.W.value):
-                line0 += f'{nw_col}'
-                if (x, y - 1) in maze.path_solve:
-                    line0 += check_path(x, y, maze)
-                else:
-                    line0 += '\033[38;5;235m█\033[0m'
-                if (x - 1, y) in maze.path_solve:
-                    line1 += check_path(x, y, maze)
-                else:
-                    line1 += '\033[38;5;235m█\033[0m'
-                line1 += cell_char
+            n_closed = c & Dir.N.value
+            w_closed = c & Dir.W.value
 
+            # line0: NW corner + (N wall or open passage above)
+            line0 += nw
+            line0 += ncol if n_closed else _on_path(x, y - 1, maze)
+
+            # line1: (W wall or open passage left) + cell content
+            line1 += wcol if w_closed else _on_path(x - 1, y, maze)
+            line1 += cell
+
+            # Right border on the last column.
             if x == maze.width - 1:
-                # Right border: top corner + east wall.
-                if has_pattern:
-                    ne_col = _wall_color(
-                        maze, color, pattern_color, (x, y), (x, y - 1)
-                    )
-                    e_col = _wall_color(
-                        maze, color, pattern_color, (x, y)
-                    )
-                else:
-                    ne_col = color
-                    e_col = color
-                line0 += f'{ne_col}'
-                line1 += f'{e_col}'
+                line0 += _wcol(maze, color, pattern_color,
+                               (x, y), (x, y - 1))
+                line1 += _wcol(maze, color, pattern_color, (x, y))
+            # Bottom border on the last row.
             if y == maze.height - 1:
-                if has_pattern and _is_pattern(maze, x, y):
-                    line_bottom += f'{pattern_color}{pattern_color}'
-                else:
-                    line_bottom += f'{color}{color}'
-        print(f"{line0}")
-        print(f"{line1}")
-    line_bottom += f'{color}'
-    print(f"{line_bottom}")
+                bcol = pattern_color \
+                    if (x, y) in getattr(maze, 'pattern_cells', set()) \
+                    else color
+                line_bottom += bcol * 2
+        print(line0)
+        print(line1)
+    line_bottom += color
+    print(line_bottom)

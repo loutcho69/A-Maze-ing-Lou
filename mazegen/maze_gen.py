@@ -1,3 +1,16 @@
+"""Maze generator.
+
+Phases (in __init__):
+  1. create_maze: randomized DFS (recursive backtracker) carves a
+     spanning tree over non-pattern cells. Pattern cells are left
+     fully closed. If the pattern isolates regions, reconnect them.
+  2. (non-perfect only) _add_cycles: knock down ~15% of removable
+     interior walls, never touching pattern walls and never creating
+     a 3x3 fully open area (subject IV.4).
+  3. (non-perfect only) _solve: BFS gives the true shortest path,
+     since the DFS-captured path is no longer optimal once cycles
+     exist. In perfect mode, the DFS path is already the shortest.
+"""
 import random
 from collections import deque
 from .data import Dir
@@ -5,9 +18,10 @@ from .patterns import Pattern
 
 
 class MazeGenerator:
-    opp = {Dir.N: Dir.S, Dir.S: Dir.N, Dir.E: Dir.W, Dir.W: Dir.E}
+    OPP = {Dir.N: Dir.S, Dir.S: Dir.N, Dir.E: Dir.W, Dir.W: Dir.E}
     DX = {Dir.E: 1, Dir.W: -1, Dir.N: 0, Dir.S: 0}
     DY = {Dir.E: 0, Dir.W: 0, Dir.N: -1, Dir.S: 1}
+    ALL_DIRS = (Dir.N, Dir.E, Dir.S, Dir.W)
 
     def __init__(self, width, height, entry, exit, perfect, pattern=None):
         self.width = width
@@ -20,59 +34,23 @@ class MazeGenerator:
         self.path_solve = []
         self.is_path = False
         self.maze = self.create_maze()
-        # Non-perfect mode: open extra walls to create cycles, then
-        # recompute the shortest path (the one captured during the DFS
-        # is no longer guaranteed to be shortest once cycles exist).
-        if not self.perfect:
+        if not perfect:
             self._add_cycles(self.maze)
             self.path_solve = self._solve(self.maze)
 
-    def create_maze(self):
-        maze = [[15 for _ in range (self.width)]for _ in range(self.height)]
-        is_visited = [[False for _ in range (self.width)] for _ in range(self.height)]
-        # Mark pattern cells as already visited so the DFS skips them.
-        for (px, py) in self.pattern_cells:
-            is_visited[py][px] = True
-        x, y = self.entry
+    # --- pattern placement ---
 
-        def itinary(x, y, path) -> list:
-            is_visited[y][x] = True
-            path.append((x, y))
-            if (x, y) == self.exit:
-                self.path_solve = path.copy()
-            direction = [Dir.N, Dir.E, Dir.S, Dir.W]
-            random.shuffle(direction)
-            for dirs in direction:
-                next_x = x + self.DX[dirs]
-                next_y = y + self.DY[dirs]
-                if self.width > next_x >= 0 and self.height > next_y >= 0:
-                    if not is_visited[next_y][next_x]:
-                        maze[y][x] -= dirs.value
-                        maze[next_y][next_x] -= self.opp[dirs].value
-                        itinary(next_x, next_y, path)
-            path.pop()
-        itinary(x, y, [])
-        # If the pattern isolated some regions, reconnect them.
-        if self.pattern_cells:
-            self._ensure_connectivity(maze)
-        return maze
-
-    # ------------------------------------------------------------------ #
-    # Helpers added for pattern support
-    # ------------------------------------------------------------------ #
     def _compute_pattern_cells(self):
-        """Place the pattern (if any) at the maze center.
-
-        Returns the set of (x, y) maze cells that must stay closed.
-        Raises ValueError if the pattern doesn't fit, or covers entry/exit.
-        """
+        """Return the set of cells that must stay closed (the pattern,
+        plus any empty cell trapped inside it). Raise ValueError if
+        the pattern doesn't fit or covers entry/exit."""
         if self.pattern is None:
             return set()
         pw, ph = self.pattern.width, self.pattern.height
         if pw + 2 > self.width or ph + 2 > self.height:
             raise ValueError(
-                f"Pattern '{self.pattern.name}' ({pw}x{ph}) does not fit "
-                f"in maze ({self.width}x{self.height}). "
+                f"Pattern '{self.pattern.name}' ({pw}x{ph}) doesn't fit in "
+                f"maze ({self.width}x{self.height}). "
                 f"Need at least {pw + 2}x{ph + 2}."
             )
         ox = (self.width - pw) // 2
@@ -87,101 +65,120 @@ class MazeGenerator:
         return cells
 
     def _find_trapped_holes(self, ox, oy, closed):
-        """Empty cells inside the pattern bbox unreachable from outside."""
+        """Empty cells inside the pattern bbox that are unreachable from
+        outside (so they should be treated as closed too)."""
         pw, ph = self.pattern.width, self.pattern.height
         bbox = {(ox + lx, oy + ly)
                 for ly in range(ph) for lx in range(pw)}
-        empty_in_bbox = bbox - closed
-        from_outside = {
-            (x, y) for (x, y) in empty_in_bbox
-            if x == ox or x == ox + pw - 1
-            or y == oy or y == oy + ph - 1
-        }
-        reachable = set()
-        stack = list(from_outside)
+        empty = bbox - closed
+        # Flood from cells on the bbox border.
+        stack = [(x, y) for (x, y) in empty
+                 if x in (ox, ox + pw - 1) or y in (oy, oy + ph - 1)]
+        seen = set()
         while stack:
             x, y = stack.pop()
-            if (x, y) in reachable:
+            if (x, y) in seen:
                 continue
-            reachable.add((x, y))
+            seen.add((x, y))
             for dx, dy in ((0, -1), (1, 0), (0, 1), (-1, 0)):
                 n = (x + dx, y + dy)
-                if n in empty_in_bbox and n not in reachable:
+                if n in empty and n not in seen:
                     stack.append(n)
-        return empty_in_bbox - reachable
+        return empty - seen
 
-    def _ensure_connectivity(self, maze):
-        """Connect any region isolated by the embedded pattern."""
-        non_pattern = {
-            (x, y) for y in range(self.height) for x in range(self.width)
-            if (x, y) not in self.pattern_cells
-        }
-        seen = set()
-        components = []
-        for start in non_pattern:
+    # --- DFS generation ---
+
+    def create_maze(self):
+        maze = [[15] * self.width for _ in range(self.height)]
+        visited = [[False] * self.width for _ in range(self.height)]
+        for (px, py) in self.pattern_cells:
+            visited[py][px] = True
+
+        def carve(x, y, path):
+            visited[y][x] = True
+            path.append((x, y))
+            if (x, y) == self.exit:
+                self.path_solve = path.copy()
+            dirs = list(self.ALL_DIRS)
+            random.shuffle(dirs)
+            for d in dirs:
+                nx, ny = x + self.DX[d], y + self.DY[d]
+                if 0 <= nx < self.width and 0 <= ny < self.height \
+                        and not visited[ny][nx]:
+                    maze[y][x] -= d.value
+                    maze[ny][nx] -= self.OPP[d].value
+                    carve(nx, ny, path)
+            path.pop()
+
+        ex, ey = self.entry
+        carve(ex, ey, [])
+        if self.pattern_cells:
+            self._reconnect(maze)
+        return maze
+
+    def _reconnect(self, maze):
+        """Reconnect any region isolated by the pattern."""
+        non_pat = {(x, y) for y in range(self.height)
+                   for x in range(self.width)
+                   if (x, y) not in self.pattern_cells}
+        seen, components = set(), []
+        for start in non_pat:
             if start in seen:
                 continue
-            comp = set()
-            stack = [start]
+            comp, stack = set(), [start]
             while stack:
                 x, y = stack.pop()
                 if (x, y) in comp:
                     continue
                 comp.add((x, y))
                 c = maze[y][x]
-                for d in (Dir.N, Dir.E, Dir.S, Dir.W):
+                for d in self.ALL_DIRS:
                     if not (c & d.value):
                         nx, ny = x + self.DX[d], y + self.DY[d]
-                        if (nx, ny) in non_pattern and (nx, ny) not in comp:
+                        if (nx, ny) in non_pat and (nx, ny) not in comp:
                             stack.append((nx, ny))
             seen |= comp
             components.append(comp)
         if len(components) <= 1:
             return
-        main = next(c for c in components if self.entry in c)
-        merged = set(main)
+        merged = next(c for c in components if self.entry in c).copy()
         for comp in components:
-            if comp is main:
+            if comp & merged:
                 continue
-            self._merge_component(maze, comp, merged)
+            self._merge(maze, comp, merged)
             merged |= comp
 
-    def _merge_component(self, maze, comp, merged):
+    def _merge(self, maze, comp, merged):
+        """Break one wall to connect comp to merged."""
         for (x, y) in comp:
             c = maze[y][x]
-            for d in (Dir.N, Dir.E, Dir.S, Dir.W):
-                if c & d.value:
-                    nx, ny = x + self.DX[d], y + self.DY[d]
-                    if (0 <= nx < self.width
-                            and 0 <= ny < self.height
-                            and (nx, ny) in merged
-                            and (nx, ny) not in self.pattern_cells):
-                        maze[y][x] -= d.value
-                        maze[ny][nx] -= self.opp[d].value
-                        return
+            for d in self.ALL_DIRS:
+                if not (c & d.value):
+                    continue
+                nx, ny = x + self.DX[d], y + self.DY[d]
+                if (0 <= nx < self.width and 0 <= ny < self.height
+                        and (nx, ny) in merged
+                        and (nx, ny) not in self.pattern_cells):
+                    maze[y][x] -= d.value
+                    maze[ny][nx] -= self.OPP[d].value
+                    return
 
-    # ------------------------------------------------------------------ #
-    # Helpers added for non-perfect mode
-    # ------------------------------------------------------------------ #
+    # --- non-perfect: extra passages ---
+
     def _add_cycles(self, maze):
-        """Knock down ~15% of removable interior walls to create cycles.
-
-        Constraints:
-        - never touch a wall of a pattern cell (they must stay closed)
-        - never create a 3x3 fully-open area (subject rule IV.4)
-        """
+        """Knock down ~15% of removable walls, respecting the no-3x3 rule."""
         candidates = []
         for y in range(self.height):
             for x in range(self.width):
                 if (x, y) in self.pattern_cells:
                     continue
                 c = maze[y][x]
-                if (c & Dir.E.value) and x + 1 < self.width:
-                    if (x + 1, y) not in self.pattern_cells:
-                        candidates.append((x, y, Dir.E))
-                if (c & Dir.S.value) and y + 1 < self.height:
-                    if (x, y + 1) not in self.pattern_cells:
-                        candidates.append((x, y, Dir.S))
+                if (c & Dir.E.value) and x + 1 < self.width \
+                        and (x + 1, y) not in self.pattern_cells:
+                    candidates.append((x, y, Dir.E))
+                if (c & Dir.S.value) and y + 1 < self.height \
+                        and (x, y + 1) not in self.pattern_cells:
+                    candidates.append((x, y, Dir.S))
         random.shuffle(candidates)
         target = len(candidates) * 15 // 100
         knocked = 0
@@ -190,35 +187,42 @@ class MazeGenerator:
                 break
             nx, ny = x + self.DX[d], y + self.DY[d]
             maze[y][x] -= d.value
-            maze[ny][nx] -= self.opp[d].value
-            if self._creates_open_3x3(maze, x, y, nx, ny):
+            maze[ny][nx] -= self.OPP[d].value
+            if self._creates_3x3(maze, x, y, nx, ny):
                 maze[y][x] += d.value
-                maze[ny][nx] += self.opp[d].value
+                maze[ny][nx] += self.OPP[d].value
             else:
                 knocked += 1
 
-    def _creates_open_3x3(self, maze, ax, ay, bx, by):
-        """Check whether removing a wall created a 3x3 open area near
-        the modified cells."""
-        candidates = set()
+    def _creates_3x3(self, maze, ax, ay, bx, by):
+        """True if any 3x3 area near the modified cells is fully open."""
+        for cx, cy in self._nearby_3x3_centers(ax, ay, bx, by):
+            if self._is_3x3_open(maze, cx, cy):
+                return True
+        return False
+
+    def _nearby_3x3_centers(self, ax, ay, bx, by):
+        """Yield 3x3 box centers that overlap either modified cell."""
+        seen = set()
         for (x, y) in ((ax, ay), (bx, by)):
             for dy in (-1, 0, 1):
                 for dx in (-1, 0, 1):
                     cx, cy = x + dx, y + dy
-                    if (1 <= cx <= self.width - 2
-                            and 1 <= cy <= self.height - 2):
-                        candidates.add((cx, cy))
-        for (cx, cy) in candidates:
-            if self._is_open_3x3(maze, cx, cy):
-                return True
-        return False
+                    if (cx, cy) in seen:
+                        continue
+                    if 1 <= cx <= self.width - 2 \
+                            and 1 <= cy <= self.height - 2:
+                        seen.add((cx, cy))
+                        yield (cx, cy)
 
-    def _is_open_3x3(self, maze, cx, cy):
-        """True if the 3x3 area centered at (cx, cy) is fully open."""
+    def _is_3x3_open(self, maze, cx, cy):
+        """True if the 3x3 box centered at (cx, cy) has all 12 internal
+        walls open and no pattern cell."""
         for dy in (-1, 0, 1):
             for dx in (-1, 0, 1):
                 if (cx + dx, cy + dy) in self.pattern_cells:
                     return False
+        # 6 horizontal walls (south of upper rows) + 6 vertical (east of left cols).
         for col in (-1, 0, 1):
             for row in (-1, 0):
                 if maze[cy + row][cx + col] & Dir.S.value:
@@ -229,10 +233,10 @@ class MazeGenerator:
                     return False
         return True
 
+    # --- non-perfect: BFS shortest path ---
+
     def _solve(self, maze):
-        """BFS from entry to exit. Returns the shortest path (list of
-        cells). Used in non-perfect mode where the DFS-captured path
-        is no longer guaranteed shortest."""
+        """BFS from entry to exit. Returns the shortest path."""
         parent = {self.entry: None}
         queue = deque([self.entry])
         while queue:
@@ -240,76 +244,44 @@ class MazeGenerator:
             if (x, y) == self.exit:
                 break
             c = maze[y][x]
-            for d in (Dir.N, Dir.E, Dir.S, Dir.W):
+            for d in self.ALL_DIRS:
                 if c & d.value:
                     continue
                 nx, ny = x + self.DX[d], y + self.DY[d]
                 if not (0 <= nx < self.width and 0 <= ny < self.height):
                     continue
-                if (nx, ny) in self.pattern_cells:
-                    continue
-                if (nx, ny) in parent:
+                if (nx, ny) in self.pattern_cells or (nx, ny) in parent:
                     continue
                 parent[(nx, ny)] = (x, y)
                 queue.append((nx, ny))
         if self.exit not in parent:
             return []
-        path = []
-        cur = self.exit
+        path, cur = [], self.exit
         while cur is not None:
             path.append(cur)
             cur = parent[cur]
-        path.reverse()
-        return path
+        return list(reversed(path))
 
-    # ------------------------------------------------------------------ #
-    # Output file format (subject IV.5)
-    # ------------------------------------------------------------------ #
-    def _path_to_directions(self):
-        """Convert path_solve (list of cells) into a string of N/E/S/W
-        letters describing the moves taken from entry to exit.
+    # --- output file (subject IV.5) ---
 
-        For each consecutive pair of cells in the path, determine the
-        cardinal direction from the first to the second.
-        """
+    def _path_directions(self):
+        """Convert path_solve into a string of N/E/S/W letters."""
         letters = []
+        moves = {(0, -1): 'N', (1, 0): 'E', (0, 1): 'S', (-1, 0): 'W'}
         for i in range(len(self.path_solve) - 1):
             x1, y1 = self.path_solve[i]
             x2, y2 = self.path_solve[i + 1]
-            dx = x2 - x1
-            dy = y2 - y1
-            if dx == 0 and dy == -1:
-                letters.append('N')
-            elif dx == 1 and dy == 0:
-                letters.append('E')
-            elif dx == 0 and dy == 1:
-                letters.append('S')
-            elif dx == -1 and dy == 0:
-                letters.append('W')
-            # If two consecutive cells aren't adjacent, the path is
-            # malformed; we silently skip (shouldn't happen with BFS).
+            letters.append(moves.get((x2 - x1, y2 - y1), ''))
         return ''.join(letters)
 
     def to_output(self):
-        """Format the maze for the output file as specified in IV.5.
-
-        - One hex digit per cell, encoded as bit 0=N, 1=E, 2=S, 3=W
-          (bit set = wall closed). Our internal cell values use the
-          exact same encoding, so we just hex() each value.
-        - Cells stored row by row, one row per line.
-        - Blank line.
-        - Entry coordinates "x,y".
-        - Exit coordinates "x,y".
-        - Shortest path as a string of N/E/S/W letters.
-        - Every line ends with '\\n'.
-        """
-        lines = []
-        for y in range(self.height):
-            row = ''.join(f'{self.maze[y][x]:X}' for x in range(self.width))
-            lines.append(row)
-        lines.append('')  # blank line separator
-        lines.append(f'{self.entry[0]},{self.entry[1]}')
-        lines.append(f'{self.exit[0]},{self.exit[1]}')
-        lines.append(self._path_to_directions())
-        # Trailing newline on every line, including the last.
-        return '\n'.join(lines) + '\n'
+        """Format the maze for the output file (one hex digit per cell,
+        blank line, entry, exit, path in NESW)."""
+        rows = [''.join(f'{self.maze[y][x]:X}' for x in range(self.width))
+                for y in range(self.height)]
+        return '\n'.join(rows + [
+            '',
+            f'{self.entry[0]},{self.entry[1]}',
+            f'{self.exit[0]},{self.exit[1]}',
+            self._path_directions(),
+        ]) + '\n'

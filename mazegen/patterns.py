@@ -1,0 +1,69 @@
+"""Patterns to embed at the center of the maze.
+
+A pattern is a 2D grid of 0/1; cells set to 1 are kept fully closed
+(all 4 walls intact) during maze generation.
+"""
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Pattern:
+    name: str
+    grid: tuple[tuple[int, ...], ...]
+
+    @property
+    def height(self) -> int:
+        return len(self.grid)
+
+    @property
+    def width(self) -> int:
+        return len(self.grid[0]) if self.grid else 0
+
+    def closed_cells(self) -> set[tuple[int, int]]:
+        return {(x, y) for y, row in enumerate(self.grid)
+                for x, v in enumerate(row) if v == 1}
+
+
+FORTY_TWO = Pattern("42", (
+    (1, 0, 0, 1, 0, 1, 1, 1, 0),
+    (1, 0, 0, 1, 0, 0, 0, 0, 1),
+    (1, 0, 0, 1, 0, 0, 0, 0, 1),
+    (1, 1, 1, 1, 0, 0, 0, 1, 0),
+    (0, 0, 0, 1, 0, 0, 1, 0, 0),
+    (0, 0, 0, 1, 0, 1, 0, 0, 0),
+    (0, 0, 0, 1, 0, 1, 1, 1, 1),
+))
+
+PACMAN = Pattern("pacman", (
+    (0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0),
+    (0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0),
+    (0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0),
+    (0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0),
+    (1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0),
+    (1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0),
+    (1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0),
+    (0, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0),
+    (0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0),
+    (0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0),
+    (0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0),
+))
+
+INVADER = Pattern("invader", (
+    (0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0),
+    (0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0),
+    (0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0),
+    (0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0),
+    (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+    (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+    (0, 0, 1, 1, 1, 1, 1, 1, 1, 0, 0),
+    (0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0),
+    (0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0),
+))
+
+PATTERNS: dict[str, Pattern] = {
+    p.name: p for p in (FORTY_TWO, PACMAN, INVADER)
+}
+
+
+def list_patterns() -> list[Pattern]:
+    return list(PATTERNS.values())

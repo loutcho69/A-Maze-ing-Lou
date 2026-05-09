@@ -1,35 +1,27 @@
 import sys
 import random
-from mazegen.print_maze import print_maze, print_title
-from mazegen.maze_gen import MazeGenerator
+from mazegen import (
+    MazeGenerator, print_maze, print_title,
+    list_patterns, FORTY_TWO,
+)
 from mazegen.data import Color
-from mazegen.patterns import list_patterns, FORTY_TWO
 from parsing import set_arg
 
+COLORS = list(Color)
+COLOR_NAMES = ['White', 'Purple', 'Blue', 'Red', 'Orange']
 
-def maze_gen(setting, pattern=None):
+
+def build_maze(setting, pattern):
     try:
-        maze = MazeGenerator(setting.WIDTH,
-                             setting.HEIGHT,
-                             setting.ENTRY,
-                             setting.EXIT,
-                             setting.PERFECT,
-                             pattern=pattern)
+        return MazeGenerator(setting.WIDTH, setting.HEIGHT,
+                             setting.ENTRY, setting.EXIT,
+                             setting.PERFECT, pattern=pattern)
     except ValueError as err:
-        # Pattern doesn't fit (or other validation error from generator).
         print(f"Pattern error: {err}")
         return None
-    except Exception as err:
-        print(f"Missing value in 'config.txt'")
-        exit()
-    return maze
 
 
-def write_output_file(maze, filename):
-    """Write the maze to the output file in the format specified by
-    the subject (IV.5). Errors are reported but don't crash the
-    program (the user can still interact with the maze).
-    """
+def write_output(maze, filename):
     try:
         with open(filename, 'w') as f:
             f.write(maze.to_output())
@@ -37,109 +29,89 @@ def write_output_file(maze, filename):
         print(f"Could not write to '{filename}': {err}")
 
 
-if __name__ == "__main__":
-    # Subject IV.2: program is invoked as `python3 a_maze_ing.py config.txt`.
-    # The config filename is the only argument. Default to 'config.txt'
-    # if none is given, so people who just run `python3 a_maze_ing.py`
-    # still get a working program.
+def display(maze, ci, pi):
+    print()
+    print_maze(maze, COLORS[ci - 1].value, COLORS[pi - 1].value)
+    print_title()
+
+
+def pick(prompt, items, current=None):
+    """Print a numbered menu and return the chosen index (1-based)."""
+    print(f'\n{prompt}')
+    for i, label in enumerate(items, 1):
+        marker = ' (current)' if label == current else ''
+        print(f'{i}. {label}{marker}')
+    print()
+    n = int(input())
+    if not (1 <= n <= len(items)):
+        raise ValueError
+    return n
+
+
+def main():
     if len(sys.argv) > 2:
         print("Usage: python3 a_maze_ing.py [config.txt]")
-        exit(1)
-    config_file = sys.argv[1] if len(sys.argv) == 2 else 'config.txt'
+        sys.exit(1)
+    cfg_file = sys.argv[1] if len(sys.argv) == 2 else 'config.txt'
 
-    setting = set_arg(config_file)
+    setting = set_arg(cfg_file)
     if setting is None:
-        # set_arg already printed a clear error message. Exit cleanly.
-        exit(1)
-
-    # Apply the seed if one is set in the config (subject IV.4).
+        sys.exit(1)
     if setting.SEED is not None:
         random.seed(setting.SEED)
 
-    pattern = FORTY_TWO  # default pattern
-    color = 1            # default wall color: White
-    pat_color = 4        # default pattern color: Red
+    pattern = FORTY_TWO
+    ci, pi = 1, 4  # wall color index, pattern color index
 
-    maze = maze_gen(setting, pattern=pattern)
+    maze = build_maze(setting, pattern)
     if maze is None:
-        # The default pattern doesn't fit. Since we always want a
-        # pattern, refuse to start instead of falling back to none.
         print("The default pattern doesn't fit in this maze size.")
         print("Tip: increase WIDTH and HEIGHT in config.txt.")
-        exit(1)
-    write_output_file(maze, setting.OUTPUT_FILE)
-    print()
-    print_maze(maze, list(Color)[color - 1].value,
-               list(Color)[pat_color - 1].value)
-    print_title()
+        sys.exit(1)
+    write_output(maze, setting.OUTPUT_FILE)
+    display(maze, ci, pi)
 
+    patterns = list_patterns()
     while True:
         try:
             cmd = int(input('Choice? (1-6): '))
             if cmd == 1:
-                new_maze = maze_gen(setting, pattern=pattern)
-                if new_maze is None:
+                new = build_maze(setting, pattern)
+                if new is None:
                     print("Generation failed; keeping previous maze.")
                     continue
-                maze = new_maze
-                write_output_file(maze, setting.OUTPUT_FILE)
-                print()
-                print_maze(maze, list(Color)[color - 1].value,
-                           list(Color)[pat_color - 1].value)
-                print_title()
+                maze = new
+                write_output(maze, setting.OUTPUT_FILE)
+                display(maze, ci, pi)
             elif cmd == 2:
-                if maze.is_path:
-                    maze.is_path = False
-                else:
-                    maze.is_path = True
-                print()
-                print_maze(maze, list(Color)[color - 1].value,
-                           list(Color)[pat_color - 1].value)
-                print_title()
+                maze.is_path = not maze.is_path
+                display(maze, ci, pi)
             elif cmd == 3:
-                print('\nChoose a color:')
-                print('1. White\n2. Purple\n3. Blue\n4. Red\n5. Orange\n')
-                color = int(input())
-                if color < 1 or color > 5:
-                    raise ValueError
-                print_maze(maze, list(Color)[color - 1].value,
-                           list(Color)[pat_color - 1].value)
-                print_title()
+                ci = pick('Choose a wall color:', COLOR_NAMES)
+                display(maze, ci, pi)
             elif cmd == 4:
-                patterns = list_patterns()
-                print('\nChoose a pattern:')
-                for i, p in enumerate(patterns, 1):
-                    marker = ' (current)' if p is pattern else ''
-                    print(f'{i}. {p.name}{marker}')
-                print()
-                choice = int(input())
-                if choice < 1 or choice > len(patterns):
-                    raise ValueError
-                new_pattern = patterns[choice - 1]
-                if new_pattern is pattern:
+                idx = pick('Choose a pattern:',
+                           [p.name for p in patterns], pattern.name)
+                new_pat = patterns[idx - 1]
+                if new_pat is pattern:
                     continue
-                new_maze = maze_gen(setting, pattern=new_pattern)
-                if new_maze is None:
+                new = build_maze(setting, new_pat)
+                if new is None:
                     print("Pattern doesn't fit; keeping previous maze.")
                     continue
-                pattern = new_pattern
-                maze = new_maze
-                write_output_file(maze, setting.OUTPUT_FILE)
-                print_maze(maze, list(Color)[color - 1].value,
-                           list(Color)[pat_color - 1].value)
-                print_title()
+                pattern, maze = new_pat, new
+                write_output(maze, setting.OUTPUT_FILE)
+                display(maze, ci, pi)
             elif cmd == 5:
-                print('\nChoose a pattern color:')
-                print('1. White\n2. Purple\n3. Blue\n4. Red\n5. Orange\n')
-                pat_color = int(input())
-                if pat_color < 1 or pat_color > 5:
-                    raise ValueError
-                print_maze(maze, list(Color)[color - 1].value,
-                           list(Color)[pat_color - 1].value)
-                print_title()
+                pi = pick('Choose a pattern color:', COLOR_NAMES)
+                display(maze, ci, pi)
             elif cmd == 6:
-                exit()
+                sys.exit(0)
             else:
                 raise ValueError
-        except ValueError as e:
+        except ValueError:
             print("Please enter a correct value")
+
+
+if __name__ == "__main__":
+    main()
