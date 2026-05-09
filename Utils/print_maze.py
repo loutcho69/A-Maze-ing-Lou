@@ -11,15 +11,11 @@ def print_title():
  ╚═╝  ╚═╝╚═╝     ╚═╝ ╚═╝  ╚═╝╚══════╝ ╚═╝╚═╝  ╚═══╝  ╚═════╝ 
 """
     print(f"\n{amazing_art}")
-    
-def print_menu():
     print("                   A _ M A Z E _ I N G\n")
     print('1. Generate a new maze', end='   ')
     print('2. Show/hide path from entry to exit')
     print('3. Rotate maze colors', end='    ')
-    print('4. Generate with other pattern')
-    print('5. Rotate pattern color', end='  ')
-    print('6. Quit\n')
+    print('4. Quit\n')
 
 
 def check_entry(x, y, maze):
@@ -36,23 +32,13 @@ def check_path(x, y, maze):
         return '░'
     return '\033[38;5;235m█\033[0m'
 
-def check_pattern(x, y, maze, color):
-    if (x, y) in maze.pattern_cells:
-        return color
-    return None
 
-
-def print_maze(maze, color, color_pattern) -> None:
+def print_maze(maze, color) -> None:
     line_bottom = ''
     for y in range(maze.height):
         line0 = ''
         line1 = ''
         for x in range(maze.width):
-            pattern = check_pattern(x, y, maze, color_pattern)
-            if pattern:
-                line0 += pattern + pattern
-                line1 += pattern + pattern
-                continue
             c = maze.maze[y][x]
             if (c & Dir.N.value) and (c & Dir.W.value):
                 line0 += f'{color}{color}'
@@ -92,4 +78,4 @@ def print_maze(maze, color, color_pattern) -> None:
         print(f"{line1}")
     line_bottom += f'{color}'
     print(f"{line_bottom}")
-
+    print_title()

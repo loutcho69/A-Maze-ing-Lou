@@ -1,16 +1,3 @@
-"""Maze generator.
-
-Phases (in __init__):
-  1. create_maze: randomized DFS (recursive backtracker) carves a
-     spanning tree over non-pattern cells. Pattern cells are left
-     fully closed. If the pattern isolates regions, reconnect them.
-  2. (non-perfect only) _add_cycles: knock down ~15% of removable
-     interior walls, never touching pattern walls and never creating
-     a 3x3 fully open area (subject IV.4).
-  3. (non-perfect only) _solve: BFS gives the true shortest path,
-     since the DFS-captured path is no longer optimal once cycles
-     exist. In perfect mode, the DFS path is already the shortest.
-"""
 import random
 from collections import deque
 from .data import Dir
@@ -41,9 +28,6 @@ class MazeGenerator:
     # --- pattern placement ---
 
     def _compute_pattern_cells(self):
-        """Return the set of cells that must stay closed (the pattern,
-        plus any empty cell trapped inside it). Raise ValueError if
-        the pattern doesn't fit or covers entry/exit."""
         if self.pattern is None:
             return set()
         pw, ph = self.pattern.width, self.pattern.height
@@ -65,13 +49,10 @@ class MazeGenerator:
         return cells
 
     def _find_trapped_holes(self, ox, oy, closed):
-        """Empty cells inside the pattern bbox that are unreachable from
-        outside (so they should be treated as closed too)."""
         pw, ph = self.pattern.width, self.pattern.height
         bbox = {(ox + lx, oy + ly)
                 for ly in range(ph) for lx in range(pw)}
         empty = bbox - closed
-        # Flood from cells on the bbox border.
         stack = [(x, y) for (x, y) in empty
                  if x in (ox, ox + pw - 1) or y in (oy, oy + ph - 1)]
         seen = set()
@@ -86,7 +67,7 @@ class MazeGenerator:
                     stack.append(n)
         return empty - seen
 
-    # --- DFS generation ---
+    # --- DFS Generation ---
 
     def create_maze(self):
         maze = [[15] * self.width for _ in range(self.height)]
@@ -117,7 +98,6 @@ class MazeGenerator:
         return maze
 
     def _reconnect(self, maze):
-        """Reconnect any region isolated by the pattern."""
         non_pat = {(x, y) for y in range(self.height)
                    for x in range(self.width)
                    if (x, y) not in self.pattern_cells}
@@ -149,7 +129,6 @@ class MazeGenerator:
             merged |= comp
 
     def _merge(self, maze, comp, merged):
-        """Break one wall to connect comp to merged."""
         for (x, y) in comp:
             c = maze[y][x]
             for d in self.ALL_DIRS:
@@ -163,10 +142,9 @@ class MazeGenerator:
                     maze[ny][nx] -= self.OPP[d].value
                     return
 
-    # --- non-perfect: extra passages ---
+    # --- Non-Perfect Maze ---
 
     def _add_cycles(self, maze):
-        """Knock down ~15% of removable walls, respecting the no-3x3 rule."""
         candidates = []
         for y in range(self.height):
             for x in range(self.width):
@@ -195,14 +173,12 @@ class MazeGenerator:
                 knocked += 1
 
     def _creates_3x3(self, maze, ax, ay, bx, by):
-        """True if any 3x3 area near the modified cells is fully open."""
         for cx, cy in self._nearby_3x3_centers(ax, ay, bx, by):
             if self._is_3x3_open(maze, cx, cy):
                 return True
         return False
 
     def _nearby_3x3_centers(self, ax, ay, bx, by):
-        """Yield 3x3 box centers that overlap either modified cell."""
         seen = set()
         for (x, y) in ((ax, ay), (bx, by)):
             for dy in (-1, 0, 1):
@@ -216,13 +192,10 @@ class MazeGenerator:
                         yield (cx, cy)
 
     def _is_3x3_open(self, maze, cx, cy):
-        """True if the 3x3 box centered at (cx, cy) has all 12 internal
-        walls open and no pattern cell."""
         for dy in (-1, 0, 1):
             for dx in (-1, 0, 1):
                 if (cx + dx, cy + dy) in self.pattern_cells:
                     return False
-        # 6 horizontal walls (south of upper rows) + 6 vertical (east of left cols).
         for col in (-1, 0, 1):
             for row in (-1, 0):
                 if maze[cy + row][cx + col] & Dir.S.value:
@@ -233,10 +206,7 @@ class MazeGenerator:
                     return False
         return True
 
-    # --- non-perfect: BFS shortest path ---
-
     def _solve(self, maze):
-        """BFS from entry to exit. Returns the shortest path."""
         parent = {self.entry: None}
         queue = deque([self.entry])
         while queue:
@@ -262,10 +232,9 @@ class MazeGenerator:
             cur = parent[cur]
         return list(reversed(path))
 
-    # --- output file (subject IV.5) ---
+    # --- Output File ---
 
     def _path_directions(self):
-        """Convert path_solve into a string of N/E/S/W letters."""
         letters = []
         moves = {(0, -1): 'N', (1, 0): 'E', (0, 1): 'S', (-1, 0): 'W'}
         for i in range(len(self.path_solve) - 1):
@@ -275,8 +244,6 @@ class MazeGenerator:
         return ''.join(letters)
 
     def to_output(self):
-        """Format the maze for the output file (one hex digit per cell,
-        blank line, entry, exit, path in NESW)."""
         rows = [''.join(f'{self.maze[y][x]:X}' for x in range(self.width))
                 for y in range(self.height)]
         return '\n'.join(rows + [

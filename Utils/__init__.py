@@ -1,5 +1,5 @@
 from .data import Dir
 from .maze_gen import MazeGenerator
-from .print_maze import print_maze
+
 
 __all__ = ['Dir', 'print_maze', 'MazeGenerator']

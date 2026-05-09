@@ -1,8 +1,3 @@
-"""Patterns to embed at the center of the maze.
-
-A pattern is a 2D grid of 0/1; cells set to 1 are kept fully closed
-(all 4 walls intact) during maze generation.
-"""
 from dataclasses import dataclass
 
 
