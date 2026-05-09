@@ -32,7 +32,6 @@ def write_output(maze, filename):
 def display(maze, ci, pi):
     print()
     print_maze(maze, COLORS[ci - 1].value, COLORS[pi - 1].value)
-    print_title()
 
 
 def pick(prompt, items, current=None):
@@ -70,6 +69,7 @@ def main():
         sys.exit(1)
     write_output(maze, setting.OUTPUT_FILE)
     display(maze, ci, pi)
+    print_title()
 
     patterns = list_patterns()
     while True:
@@ -79,10 +79,10 @@ def main():
                 new = build_maze(setting, pattern)
                 if new is None:
                     print("Generation failed; keeping previous maze.")
-                    continue
-                maze = new
-                write_output(maze, setting.OUTPUT_FILE)
-                display(maze, ci, pi)
+                else:
+                    maze = new
+                    write_output(maze, setting.OUTPUT_FILE)
+                    display(maze, ci, pi)
             elif cmd == 2:
                 maze.is_path = not maze.is_path
                 display(maze, ci, pi)
@@ -93,24 +93,26 @@ def main():
                 idx = pick('Choose a pattern:',
                            [p.name for p in patterns], pattern.name)
                 new_pat = patterns[idx - 1]
-                if new_pat is pattern:
-                    continue
-                new = build_maze(setting, new_pat)
-                if new is None:
-                    print("Pattern doesn't fit; keeping previous maze.")
-                    continue
-                pattern, maze = new_pat, new
-                write_output(maze, setting.OUTPUT_FILE)
-                display(maze, ci, pi)
+                if new_pat is not pattern:
+                    new = build_maze(setting, new_pat)
+                    if new is None:
+                        print("Pattern doesn't fit; keeping previous maze.")
+                    else:
+                        pattern, maze = new_pat, new
+                        write_output(maze, setting.OUTPUT_FILE)
+                        display(maze, ci, pi)
             elif cmd == 5:
                 pi = pick('Choose a pattern color:', COLOR_NAMES)
                 display(maze, ci, pi)
             elif cmd == 6:
-                sys.exit(0)
+                return
             else:
                 raise ValueError
         except ValueError:
             print("Please enter a correct value")
+        # Re-print the menu after every action (success or failure)
+        # so the user always knows what to do next.
+        print_title()
 
 
 if __name__ == "__main__":
