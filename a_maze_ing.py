@@ -116,4 +116,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (KeyboardInterrupt, EOFError):
+        # Ctrl+C or Ctrl+D: exit cleanly, no traceback. The newline
+        # makes the shell prompt return on its own line.
+        print()
+        sys.exit(0)
