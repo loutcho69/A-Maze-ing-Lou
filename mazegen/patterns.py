@@ -54,11 +54,3 @@ INVADER = Pattern("invader", (
     (0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0),
     (0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0),
 ))
-
-PATTERNS: dict[str, Pattern] = {
-    p.name: p for p in (FORTY_TWO, PACMAN, INVADER)
-}
-
-
-def list_patterns() -> list[Pattern]:
-    return list(PATTERNS.values())

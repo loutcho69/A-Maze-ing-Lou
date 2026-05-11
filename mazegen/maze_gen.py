@@ -1,5 +1,6 @@
 import random
 from collections import deque
+from typing import Iterator
 from .data import Dir
 from .patterns import Pattern
 
@@ -10,7 +11,10 @@ class MazeGenerator:
     DY = {Dir.E: 0, Dir.W: 0, Dir.N: -1, Dir.S: 1}
     ALL_DIRS = (Dir.N, Dir.E, Dir.S, Dir.W)
 
-    def __init__(self, width, height, entry, exit, perfect, pattern=None):
+    # mypy R8: full annotations on the public constructor
+    def __init__(self, width: int, height: int,
+                 entry: tuple[int, int], exit: tuple[int, int],
+                 perfect: bool, pattern: Pattern | None = None) -> None:
         self.width = width
         self.height = height
         self.entry = entry
@@ -18,7 +22,7 @@ class MazeGenerator:
         self.perfect = perfect
         self.pattern = pattern
         self.pattern_cells = self._compute_pattern_cells()
-        self.path_solve = []
+        self.path_solve: list[tuple[int, int]] = []
         self.is_path = False
         self.maze = self.create_maze()
         if not perfect:
@@ -27,7 +31,8 @@ class MazeGenerator:
 
     # --- pattern placement ---
 
-    def _compute_pattern_cells(self):
+    # mypy R8: typed; assert narrows Pattern|None to Pattern
+    def _compute_pattern_cells(self) -> set[tuple[int, int]]:
         if self.pattern is None:
             return set()
         pw, ph = self.pattern.width, self.pattern.height
@@ -48,7 +53,11 @@ class MazeGenerator:
             )
         return cells
 
-    def _find_trapped_holes(self, ox, oy, closed):
+    # mypy R8: only called when self.pattern is not None
+    def _find_trapped_holes(self, ox: int, oy: int,
+                            closed: set[tuple[int, int]]
+                            ) -> set[tuple[int, int]]:
+        assert self.pattern is not None  # mypy narrowing
         pw, ph = self.pattern.width, self.pattern.height
         bbox = {(ox + lx, oy + ly)
                 for ly in range(ph) for lx in range(pw)}
@@ -69,13 +78,14 @@ class MazeGenerator:
 
     # --- DFS Generation ---
 
-    def create_maze(self):
+    # mypy R8: returns the maze grid (list of rows of cell values)
+    def create_maze(self) -> list[list[int]]:
         maze = [[15] * self.width for _ in range(self.height)]
         visited = [[False] * self.width for _ in range(self.height)]
         for (px, py) in self.pattern_cells:
             visited[py][px] = True
 
-        def carve(x, y, path):
+        def carve(x: int, y: int, path: list[tuple[int, int]]) -> None:
             visited[y][x] = True
             path.append((x, y))
             if (x, y) == self.exit:
@@ -97,7 +107,8 @@ class MazeGenerator:
             self._reconnect(maze)
         return maze
 
-    def _reconnect(self, maze):
+    # mypy R8: type the helper methods (all operate on the same maze grid)
+    def _reconnect(self, maze: list[list[int]]) -> None:
         non_pat = {(x, y) for y in range(self.height)
                    for x in range(self.width)
                    if (x, y) not in self.pattern_cells}
@@ -128,7 +139,9 @@ class MazeGenerator:
             self._merge(maze, comp, merged)
             merged |= comp
 
-    def _merge(self, maze, comp, merged):
+    def _merge(self, maze: list[list[int]],
+               comp: set[tuple[int, int]],
+               merged: set[tuple[int, int]]) -> None:
         for (x, y) in comp:
             c = maze[y][x]
             for d in self.ALL_DIRS:
@@ -144,7 +157,7 @@ class MazeGenerator:
 
     # --- Non-Perfect Maze ---
 
-    def _add_cycles(self, maze):
+    def _add_cycles(self, maze: list[list[int]]) -> None:
         candidates = []
         for y in range(self.height):
             for x in range(self.width):
@@ -172,14 +185,18 @@ class MazeGenerator:
             else:
                 knocked += 1
 
-    def _creates_3x3(self, maze, ax, ay, bx, by):
+    def _creates_3x3(self, maze: list[list[int]],
+                     ax: int, ay: int, bx: int, by: int) -> bool:
         for cx, cy in self._nearby_3x3_centers(ax, ay, bx, by):
             if self._is_3x3_open(maze, cx, cy):
                 return True
         return False
 
-    def _nearby_3x3_centers(self, ax, ay, bx, by):
-        seen = set()
+    # mypy R8: generator -> Iterator
+    def _nearby_3x3_centers(self, ax: int, ay: int,
+                            bx: int, by: int
+                            ) -> "Iterator[tuple[int, int]]":
+        seen: set[tuple[int, int]] = set()
         for (x, y) in ((ax, ay), (bx, by)):
             for dy in (-1, 0, 1):
                 for dx in (-1, 0, 1):
@@ -191,7 +208,8 @@ class MazeGenerator:
                         seen.add((cx, cy))
                         yield (cx, cy)
 
-    def _is_3x3_open(self, maze, cx, cy):
+    def _is_3x3_open(self, maze: list[list[int]],
+                     cx: int, cy: int) -> bool:
         for dy in (-1, 0, 1):
             for dx in (-1, 0, 1):
                 if (cx + dx, cy + dy) in self.pattern_cells:
@@ -206,8 +224,12 @@ class MazeGenerator:
                     return False
         return True
 
-    def _solve(self, maze):
-        parent = {self.entry: None}
+    # mypy R8: BFS shortest path
+    # parent[cell] = previous cell (or None for entry)
+    def _solve(self, maze: list[list[int]]) -> list[tuple[int, int]]:
+        parent: dict[tuple[int, int], tuple[int, int] | None] = {
+            self.entry: None
+        }
         queue = deque([self.entry])
         while queue:
             x, y = queue.popleft()
@@ -226,7 +248,8 @@ class MazeGenerator:
                 queue.append((nx, ny))
         if self.exit not in parent:
             return []
-        path, cur = [], self.exit
+        path: list[tuple[int, int]] = []
+        cur: tuple[int, int] | None = self.exit
         while cur is not None:
             path.append(cur)
             cur = parent[cur]
@@ -234,8 +257,8 @@ class MazeGenerator:
 
     # --- Output File ---
 
-    def _path_directions(self):
-        letters = []
+    def _path_directions(self) -> str:
+        letters: list[str] = []
         moves = {(0, -1): 'N', (1, 0): 'E', (0, 1): 'S', (-1, 0): 'W'}
         for i in range(len(self.path_solve) - 1):
             x1, y1 = self.path_solve[i]
@@ -243,7 +266,7 @@ class MazeGenerator:
             letters.append(moves.get((x2 - x1, y2 - y1), ''))
         return ''.join(letters)
 
-    def to_output(self):
+    def to_output(self) -> str:
         rows = [''.join(f'{self.maze[y][x]:X}' for x in range(self.width))
                 for y in range(self.height)]
         return '\n'.join(rows + [

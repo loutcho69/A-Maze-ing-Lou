@@ -1,10 +1,12 @@
 from enum import Enum
 
+
 class Dir(Enum):
     N = 1
     E = 2
     S = 4
     W = 8
+
 
 class Color(Enum):
     WHITE = '█'

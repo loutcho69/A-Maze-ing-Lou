@@ -1,18 +1,21 @@
+from typing import Any
 from .data import Dir
 
 
-def print_title():
+# mypy R8: -> None for procedures that don't return
+def print_title() -> None:
     amazing_art = r"""
-  █████╗ ███╗   ███╗  █████╗ ███████╗ ██╗███╗   ██╗  ██████╗ 
- ██╔══██╗████╗ ████║ ██╔══██╗╚══███╔╝ ██║████╗  ██║ ██╔════╝ 
+  █████╗ ███╗   ███╗  █████╗ ███████╗ ██╗███╗   ██╗  ██████╗
+ ██╔══██╗████╗ ████║ ██╔══██╗╚══███╔╝ ██║████╗  ██║ ██╔════╝
  ███████║██╔████╔██║ ███████║  ███╔╝  ██║██╔██╗ ██║ ██║  ███╗
  ██╔══██║██║╚██╔╝██║ ██╔══██║ ███╔╝   ██║██║╚██╗██║ ██║   ██║
  ██║  ██║██║ ╚═╝ ██║ ██║  ██║███████╗ ██║██║ ╚████║ ╚██████╔╝
- ╚═╝  ╚═╝╚═╝     ╚═╝ ╚═╝  ╚═╝╚══════╝ ╚═╝╚═╝  ╚═══╝  ╚═════╝ 
+ ╚═╝  ╚═╝╚═╝     ╚═╝ ╚═╝  ╚═╝╚══════╝ ╚═╝╚═╝  ╚═══╝  ╚═════╝
 """
     print(f"\n{amazing_art}")
-    
-def print_menu():
+
+
+def print_menu() -> None:
     print("                   A _ M A Z E _ I N G\n")
     print('1. Generate a new maze', end='   ')
     print('2. Show/hide path from entry to exit')
@@ -22,7 +25,8 @@ def print_menu():
     print('6. Quit\n')
 
 
-def check_entry(x, y, maze):
+# mypy R8: 'maze' typed as Any to avoid circular import with MazeGenerator
+def check_entry(x: int, y: int, maze: Any) -> str:
     if (x, y) == maze.entry:
         return '\033[32m█\033[0m'
     elif (x, y) == maze.exit:
@@ -30,19 +34,22 @@ def check_entry(x, y, maze):
     elif (x, y) in maze.path_solve and maze.is_path:
         return '░'
     return '\033[38;5;235m█\033[0m'
-    
-def check_path(x, y, maze):
+
+
+def check_path(x: int, y: int, maze: Any) -> str:
     if (x, y) in maze.path_solve and maze.is_path:
         return '░'
     return '\033[38;5;235m█\033[0m'
 
-def check_pattern(x, y, maze, color):
+
+# mypy R8: returns the pattern color or None when not a pattern cell
+def check_pattern(x: int, y: int, maze: Any, color: str) -> str | None:
     if (x, y) in maze.pattern_cells:
         return color
     return None
 
 
-def print_maze(maze, color, color_pattern) -> None:
+def print_maze(maze: Any, color: str, color_pattern: str) -> None:
     line_bottom = ''
     for y in range(maze.height):
         line0 = ''
@@ -77,7 +84,7 @@ def print_maze(maze, color, color_pattern) -> None:
                 if (x, y - 1) in maze.path_solve:
                     line0 += check_path(x, y, maze)
                 else:
-                    line0 += '\033[38;5;235m█\033[0m' 
+                    line0 += '\033[38;5;235m█\033[0m'
                 if (x - 1, y) in maze.path_solve:
                     line1 += check_path(x, y, maze)
                 else:
@@ -92,4 +99,3 @@ def print_maze(maze, color, color_pattern) -> None:
         print(f"{line1}")
     line_bottom += f'{color}'
     print(f"{line_bottom}")
-

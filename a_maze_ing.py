@@ -1,26 +1,42 @@
+import sys
+import random
 from mazegen.print_maze import print_maze, print_title, print_menu
 from mazegen.maze_gen import MazeGenerator
 from mazegen.data import Color
-from mazegen.patterns import FORTY_TWO, PACMAN, INVADER
-from parsing import set_arg
+from mazegen.patterns import FORTY_TWO, PACMAN, INVADER, Pattern
+from parsing import set_arg, MazeSetting
+from output import write_output
 
 
-def maze_gen(setting, pattern):
+# mypy R8: takes a validated MazeSetting and an optional Pattern
+def maze_gen(setting: MazeSetting, pattern: Pattern | None) -> MazeGenerator:
     try:
         maze = MazeGenerator(setting.WIDTH,
-                            setting.HEIGHT,
-                            setting.ENTRY,
-                            setting.EXIT,
-                            setting.PERFECT,
-                            pattern)
-    except Exception as err:
-        print(f"Missing value in 'config.txt'")
+                             setting.HEIGHT,
+                             setting.ENTRY,
+                             setting.EXIT,
+                             setting.PERFECT,
+                             pattern)
+    except ValueError as err:
+        print(err)
+        if pattern is None:
+            exit()
+        return maze_gen(setting, None)
+    # flake8 F841/F541: 'err' not used here, message has no placeholder
+    except Exception:
+        print("Missing value in 'config.txt'")
         exit()
     return maze
 
+
 if __name__ == "__main__":
-    setting = set_arg('config.txt')
+    setting = set_arg(sys.argv[1] if len(sys.argv) > 1 else 'config.txt')
+    if setting is None:
+        exit()
+    if setting.SEED is not None:
+        random.seed(setting.SEED)
     maze = maze_gen(setting, FORTY_TWO)
+    write_output(maze, setting.OUTPUT_FILE)
     print()
     print_maze(maze, Color.WHITE.value, Color.CYAN.value)
     print_title()
@@ -32,8 +48,10 @@ if __name__ == "__main__":
             cmd = int(input('Choice? (1-6): '))
             if cmd == 1:
                 maze = maze_gen(setting, maze.pattern)
+                write_output(maze, setting.OUTPUT_FILE)
                 print()
-                print_maze(maze, list(Color)[color - 1].value, list(Color)[color_pattern + 4].value)
+                print_maze(maze, list(Color)[color - 1].value,
+                           list(Color)[color_pattern + 4].value)
                 print_title()
                 print_menu()
             elif cmd == 2:
@@ -42,7 +60,8 @@ if __name__ == "__main__":
                 else:
                     maze.is_path = True
                 print()
-                print_maze(maze, list(Color)[color - 1].value, list(Color)[color_pattern + 4].value)
+                print_maze(maze, list(Color)[color - 1].value,
+                           list(Color)[color_pattern + 4].value)
                 print_title()
                 print_menu()
             elif cmd == 3:
@@ -51,7 +70,8 @@ if __name__ == "__main__":
                 color = int(input())
                 if color < 1 or color > 5:
                     raise ValueError
-                print_maze(maze, list(Color)[color - 1].value, list(Color)[color_pattern + 4].value)
+                print_maze(maze, list(Color)[color - 1].value,
+                           list(Color)[color_pattern + 4].value)
                 print_title()
                 print_menu()
             elif cmd == 4:
@@ -66,7 +86,9 @@ if __name__ == "__main__":
                     maze = maze_gen(setting, PACMAN)
                 else:
                     maze = maze_gen(setting, INVADER)
-                print_maze(maze, list(Color)[color - 1].value, list(Color)[color_pattern + 4].value)
+                write_output(maze, setting.OUTPUT_FILE)
+                print_maze(maze, list(Color)[color - 1].value,
+                           list(Color)[color_pattern + 4].value)
                 print_title()
                 print_menu()
             elif cmd == 5:
@@ -77,15 +99,16 @@ if __name__ == "__main__":
                 if color_pattern < 1 or color_pattern > 3:
                     color_pattern = color_tmp
                     raise ValueError
-                print_maze(maze, list(Color)[color - 1].value, list(Color)[color_pattern + 4].value)
+                print_maze(maze, list(Color)[color - 1].value,
+                           list(Color)[color_pattern + 4].value)
                 print_title()
                 print_menu()
             elif cmd == 6:
                 exit()
             else:
                 raise ValueError
-        except ValueError as e:
+        except ValueError:
             print("Please enter a correct value\n")
             print_menu()
-        except (KeyboardInterrupt, EOFError) as e:
+        except (KeyboardInterrupt, EOFError):
             exit()

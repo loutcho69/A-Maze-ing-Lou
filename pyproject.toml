@@ -5,11 +5,11 @@ description = "Maze Generator"
 authors = [
     {name = "lucpelle, lobroue"}
 ]
-requires-python = ">=3.13"
+# Subject R1: minimum Python 3.10 (more portable than 3.13)
+requires-python = ">=3.10"
 dependencies = [
     "pydantic"
 ]
-readme = "README_PKG.md"
 
 
 [build-system]
