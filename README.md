@@ -113,7 +113,7 @@ ENTRY=0,0
 EXIT=25,5
 OUTPUT_FILE=maze.txt
 PERFECT=False
-# SEED=42
+#SEED=42
 ```
 
 ### Error handling

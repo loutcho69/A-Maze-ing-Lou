@@ -69,7 +69,7 @@ if __name__ == "__main__":
         else:
             raise Exception("Enter setting file name")
         if setting is None:
-            raise Exception("No argument find")
+            raise Exception("No argument found")
     except Exception as e:
         print(e)
         exit()
@@ -108,8 +108,6 @@ if __name__ == "__main__":
             elif cmd == 3:
                 print('\nChoose a color:')
                 print('1. White\n2. Purple\n3. Blue\n4. Red\n5. Orange\n')
-                # Bug #1 fix: keep current 'color' until validation passes,
-                # so a bad input doesn't corrupt it for the next commands
                 color_tmp = color
                 color = int(input())
                 if color < 1 or color > 5:
@@ -122,7 +120,6 @@ if __name__ == "__main__":
             elif cmd == 4:
                 print('\nChoose a pattern:')
                 print('1. 42\n2. Pacman\n3. Invader\n')
-                # Bug #1 (sym): keep 'pattern' until validated
                 pattern_tmp = pattern
                 pattern = int(input())
                 if pattern < 1 or pattern > 3:

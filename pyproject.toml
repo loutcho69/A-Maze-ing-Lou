@@ -5,7 +5,6 @@ description = "Maze Generator"
 authors = [
     {name = "lucpelle, lobroue"}
 ]
-# Subject R1: minimum Python 3.10 (more portable than 3.13)
 requires-python = ">=3.10"
 dependencies = [
     "pydantic"

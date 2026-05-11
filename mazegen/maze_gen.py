@@ -11,7 +11,6 @@ class MazeGenerator:
     DY = {Dir.E: 0, Dir.W: 0, Dir.N: -1, Dir.S: 1}
     ALL_DIRS = (Dir.N, Dir.E, Dir.S, Dir.W)
 
-
     def __init__(self, width: int, height: int,
                  entry: tuple[int, int], exit: tuple[int, int],
                  perfect: bool, pattern: Pattern | None = None,
@@ -57,7 +56,7 @@ class MazeGenerator:
     def _find_trapped_holes(self, ox: int, oy: int,
                             closed: set[tuple[int, int]]
                             ) -> set[tuple[int, int]]:
-        assert self.pattern is not None  # mypy narrowing
+        assert self.pattern is not None
         pw, ph = self.pattern.width, self.pattern.height
         bbox = {(ox + lx, oy + ly)
                 for ly in range(ph) for lx in range(pw)}
@@ -245,7 +244,6 @@ class MazeGenerator:
             path.append(cur)
             cur = parent[cur]
         return list(reversed(path))
-
 
     def _path_directions(self) -> str:
         letters: list[str] = []
