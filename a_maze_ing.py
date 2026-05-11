@@ -43,6 +43,7 @@ if __name__ == "__main__":
     print_menu()
     color = 1
     color_pattern = 1
+    pattern = 1  # current pattern index (1=42, 2=pacman, 3=invader)
     while True:
         try:
             cmd = int(input('Choice? (1-6): '))
@@ -67,8 +68,12 @@ if __name__ == "__main__":
             elif cmd == 3:
                 print('\nChoose a color:')
                 print('1. White\n2. Purple\n3. Blue\n4. Red\n5. Orange\n')
+                # Bug #1 fix: keep current 'color' until validation passes,
+                # so a bad input doesn't corrupt it for the next commands
+                color_tmp = color
                 color = int(input())
                 if color < 1 or color > 5:
+                    color = color_tmp
                     raise ValueError
                 print_maze(maze, list(Color)[color - 1].value,
                            list(Color)[color_pattern + 4].value)
@@ -77,8 +82,11 @@ if __name__ == "__main__":
             elif cmd == 4:
                 print('\nChoose a pattern:')
                 print('1. 42\n2. Pacman\n3. Invader\n')
+                # Bug #1 (sym): keep 'pattern' until validated
+                pattern_tmp = pattern
                 pattern = int(input())
                 if pattern < 1 or pattern > 3:
+                    pattern = pattern_tmp
                     raise ValueError
                 if pattern == 1:
                     maze = maze_gen(setting, FORTY_TWO)

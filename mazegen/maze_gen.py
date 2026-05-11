@@ -12,9 +12,15 @@ class MazeGenerator:
     ALL_DIRS = (Dir.N, Dir.E, Dir.S, Dir.W)
 
     # mypy R8: full annotations on the public constructor
+    # Subject VI: optional 'seed' for reproducibility when used as a library
     def __init__(self, width: int, height: int,
                  entry: tuple[int, int], exit: tuple[int, int],
-                 perfect: bool, pattern: Pattern | None = None) -> None:
+                 perfect: bool, pattern: Pattern | None = None,
+                 seed: int | None = None) -> None:
+        # Subject IV.4 / VI: fix the random seed before any generation
+        # so two MazeGenerator(..., seed=N) produce the exact same maze.
+        if seed is not None:
+            random.seed(seed)
         self.width = width
         self.height = height
         self.entry = entry

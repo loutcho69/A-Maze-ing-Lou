@@ -182,7 +182,10 @@ The same approach is used for both perfect and imperfect modes — the imperfect
 
 ### Reproducibility
 
-When the `SEED` key is set in the configuration file, the program calls `random.seed(...)` before any generation. Running the program twice with the same configuration then produces byte-for-byte identical output — useful for debugging, demos, and grading.
+Two equivalent ways to fix the random seed are available:
+
+- **From the configuration file**: add `SEED=42` to your `config.txt`. The program calls `random.seed(...)` at startup, and two runs of `a_maze_ing.py` then produce byte-for-byte identical output.
+- **From code**, when using the `mazegen` module as a library: pass `seed=42` to the `MazeGenerator` constructor. Useful for debugging, demos, and grading.
 
 ---
 
@@ -209,9 +212,6 @@ python -m build
 ```python
 from mazegen import MazeGenerator
 from mazegen.patterns import FORTY_TWO
-import random
-
-random.seed(42)  # optional: makes generation reproducible
 
 maze = MazeGenerator(
     width=30,
@@ -220,6 +220,7 @@ maze = MazeGenerator(
     exit=(29, 14),
     perfect=True,
     pattern=FORTY_TWO,  # optional: None for a plain maze
+    seed=42,            # optional: reproducible output when set
 )
 
 print(maze.maze)        # list of rows of hexadecimal cell values
@@ -237,6 +238,7 @@ print(maze.to_output()) # full string in the output-file format
 | `exit`    | `tuple[int, int]`          | Exit coordinates (must differ from entry).          |
 | `perfect` | `bool`                     | `True` for a perfect maze, `False` for cycles.      |
 | `pattern` | `Pattern \| None`          | Optional embedded pattern (`FORTY_TWO`, `PACMAN`, `INVADER`, or `None`). |
+| `seed`    | `int \| None`              | Optional random seed; identical seeds produce identical mazes. |
 
 The `Pattern` class lets you define your own embedded patterns:
 
