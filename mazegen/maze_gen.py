@@ -11,14 +11,11 @@ class MazeGenerator:
     DY = {Dir.E: 0, Dir.W: 0, Dir.N: -1, Dir.S: 1}
     ALL_DIRS = (Dir.N, Dir.E, Dir.S, Dir.W)
 
-    # mypy R8: full annotations on the public constructor
-    # Subject VI: optional 'seed' for reproducibility when used as a library
+
     def __init__(self, width: int, height: int,
                  entry: tuple[int, int], exit: tuple[int, int],
                  perfect: bool, pattern: Pattern | None = None,
                  seed: int | None = None) -> None:
-        # Subject IV.4 / VI: fix the random seed before any generation
-        # so two MazeGenerator(..., seed=N) produce the exact same maze.
         if seed is not None:
             random.seed(seed)
         self.width = width
@@ -31,13 +28,11 @@ class MazeGenerator:
         self.path_solve: list[tuple[int, int]] = []
         self.is_path = False
         self.maze = self.create_maze()
+        self.seed = seed
         if not perfect:
             self._add_cycles(self.maze)
             self.path_solve = self._solve(self.maze)
 
-    # --- pattern placement ---
-
-    # mypy R8: typed; assert narrows Pattern|None to Pattern
     def _compute_pattern_cells(self) -> set[tuple[int, int]]:
         if self.pattern is None:
             return set()
@@ -59,7 +54,6 @@ class MazeGenerator:
             )
         return cells
 
-    # mypy R8: only called when self.pattern is not None
     def _find_trapped_holes(self, ox: int, oy: int,
                             closed: set[tuple[int, int]]
                             ) -> set[tuple[int, int]]:
@@ -82,9 +76,6 @@ class MazeGenerator:
                     stack.append(n)
         return empty - seen
 
-    # --- DFS Generation ---
-
-    # mypy R8: returns the maze grid (list of rows of cell values)
     def create_maze(self) -> list[list[int]]:
         maze = [[15] * self.width for _ in range(self.height)]
         visited = [[False] * self.width for _ in range(self.height)]
@@ -113,7 +104,6 @@ class MazeGenerator:
             self._reconnect(maze)
         return maze
 
-    # mypy R8: type the helper methods (all operate on the same maze grid)
     def _reconnect(self, maze: list[list[int]]) -> None:
         non_pat = {(x, y) for y in range(self.height)
                    for x in range(self.width)
@@ -161,8 +151,6 @@ class MazeGenerator:
                     maze[ny][nx] -= self.OPP[d].value
                     return
 
-    # --- Non-Perfect Maze ---
-
     def _add_cycles(self, maze: list[list[int]]) -> None:
         candidates = []
         for y in range(self.height):
@@ -198,7 +186,6 @@ class MazeGenerator:
                 return True
         return False
 
-    # mypy R8: generator -> Iterator
     def _nearby_3x3_centers(self, ax: int, ay: int,
                             bx: int, by: int
                             ) -> "Iterator[tuple[int, int]]":
@@ -230,8 +217,6 @@ class MazeGenerator:
                     return False
         return True
 
-    # mypy R8: BFS shortest path
-    # parent[cell] = previous cell (or None for entry)
     def _solve(self, maze: list[list[int]]) -> list[tuple[int, int]]:
         parent: dict[tuple[int, int], tuple[int, int] | None] = {
             self.entry: None
@@ -261,7 +246,6 @@ class MazeGenerator:
             cur = parent[cur]
         return list(reversed(path))
 
-    # --- Output File ---
 
     def _path_directions(self) -> str:
         letters: list[str] = []

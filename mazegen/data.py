@@ -1,7 +1,24 @@
+"""
+Core enums for A-Maze-ing.
+
+Defines:
+- Dir: bit-flag representation of maze walls
+- Color: ANSI colors used for terminal rendering
+"""
 from enum import Enum
 
 
 class Dir(Enum):
+    """Bitmask representation of maze directions.
+
+    Each direction corresponds to a power of two, allowing
+    walls to be encoded as bitwise values in each cell:
+
+    - N = 1
+    - E = 2
+    - S = 4
+    - W = 8
+    """
     N = 1
     E = 2
     S = 4
@@ -9,6 +26,15 @@ class Dir(Enum):
 
 
 class Color(Enum):
+    """ANSI color codes used for terminal maze rendering.
+
+    Each value represents a colored block character used to draw:
+    - maze walls
+    - patterns
+    - UI elements
+
+    Colors are encoded using ANSI escape sequences.
+    """
     WHITE = '█'
     PURPLE = '\033[38;2;186;104;200m█\033[0m'
     BLUE = '\033[38;2;144;202;249m█\033[0m'

@@ -283,12 +283,50 @@ The split is intentional:
 
 ---
 
-## Resources
+## Team & Project Management
 
-<!-- À remplir : références externes, documentation, comment l'IA a été utilisée -->
+### Roles
+
+| Member    | Role                                                         |
+|-----------|--------------------------------------------------------------|
+| lucpelle  | Parser, Backtracking, Mazegen, Menu settings interaction, Terminal display |
+| lobroue   | Pathfinding, Imperfect mode, 42, Readme, BFS rework, Output file, Makefile |
+
+### Planning
+
+Initially we estimated roughly equal time between maze generation and the visual layer. In practice the interactive menu, rendering and wall-coherence validation took longer than expected, while the parsing and backtracking algorithm came together faster once the grid structure was stabilised.
+
+### Retrospective
+
+What worked well:
+- Splitting the project into a reusable package (`mazegen`) and a CLI layer made testing and packaging easier.
+- Using pydantic early greatly reduced parsing and validation bugs.
+- The DFS approach integrated naturally with the embedded pattern system.
+
+What could be improved:
+- Some rendering and wall-consistency checks were implemented late and required refactoring.
+- More automated tests would have helped catch edge cases earlier.
+- The menu and rendering logic could be further separated from the core generation code.
+
+### Tools Used
+
+- **Python 3.10+**
+- **Poetry** — dependency management and packaging
+- **mypy** — static type checking
+- **flake8** — code style linting
+- **Git** — version control
 
 ---
 
-## Team management
+## Resources
 
-<!-- À remplir : rôles, planning prévu/réel, succès et améliorations, outils -->
+- [Maze generation algorithms — Wikipedia](https://en.wikipedia.org/wiki/Maze_generation_algorithm)
+- [Recursive Backtracker](https://aryanab.medium.com/maze-generation-recursive-backtracking-5981bc5cc766)
+- [Pathfinding — BFS](https://www.geeksforgeeks.org/dsa/count-number-of-ways-to-reach-destination-in-a-maze-using-bfs/)
+
+### AI Usage
+
+- README.md structure
+- Differents explanations/clarifications of notions
+
+All generated code and documentation was reviewed, understood, and adjusted by both team members before being committed.

@@ -1,3 +1,12 @@
+"""
+A-Maze-ing main application.
+
+Handles:
+- configuration parsing
+- maze generation (with optional pattern)
+- interactive terminal menu
+- rendering and output file writing
+"""
 import sys
 import random
 from mazegen.print_maze import print_maze, print_title, print_menu
@@ -8,21 +17,36 @@ from parsing import set_arg, MazeSetting
 from output import write_output
 
 
-# mypy R8: takes a validated MazeSetting and an optional Pattern
 def maze_gen(setting: MazeSetting, pattern: Pattern | None) -> MazeGenerator:
+    """Generate a maze from settings and an optional pattern.
+
+    This function wraps MazeGenerator creation and handles errors:
+    - If a pattern causes a ValueError, generation is retried without pattern.
+    - If generation still fails, the program exits.
+
+    Args:
+        setting: Validated configuration object.
+        pattern: Optional pattern to embed in the maze.
+
+    Returns:
+        MazeGenerator: The generated maze instance.
+
+    Exits:
+        Program exits if maze generation is not possible.
+    """
     try:
         maze = MazeGenerator(setting.WIDTH,
                              setting.HEIGHT,
                              setting.ENTRY,
                              setting.EXIT,
                              setting.PERFECT,
-                             pattern)
+                             pattern,
+                             setting.SEED)
     except ValueError as err:
         print(err)
         if pattern is None:
             exit()
         return maze_gen(setting, None)
-    # flake8 F841/F541: 'err' not used here, message has no placeholder
     except Exception:
         print("Missing value in 'config.txt'")
         exit()
@@ -30,8 +54,24 @@ def maze_gen(setting: MazeSetting, pattern: Pattern | None) -> MazeGenerator:
 
 
 if __name__ == "__main__":
-    setting = set_arg(sys.argv[1] if len(sys.argv) > 1 else 'config.txt')
-    if setting is None:
+    """Entry point of the program.
+
+    Flow:
+    - Parse configuration file
+    - Validate settings
+    - Initialize seed if provided
+    - Generate initial maze
+    - Start interactive menu loop
+    """
+    try:
+        if len(sys.argv) == 2:
+            setting = set_arg(sys.argv[1])
+        else:
+            raise Exception("Enter setting file name")
+        if setting is None:
+            raise Exception("No argument find")
+    except Exception as e:
+        print(e)
         exit()
     if setting.SEED is not None:
         random.seed(setting.SEED)
@@ -43,7 +83,7 @@ if __name__ == "__main__":
     print_menu()
     color = 1
     color_pattern = 1
-    pattern = 1  # current pattern index (1=42, 2=pacman, 3=invader)
+    pattern = 1
     while True:
         try:
             cmd = int(input('Choice? (1-6): '))

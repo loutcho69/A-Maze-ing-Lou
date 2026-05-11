@@ -1,9 +1,17 @@
+"""
+Terminal rendering utilities for A-Maze-ing.
+
+This module handles:
+- ASCII title and menu display
+- Maze rendering in terminal with ANSI colors
+- Display of entry, exit, pattern, and shortest path
+"""
 from typing import Any
 from .data import Dir
 
 
-# mypy R8: -> None for procedures that don't return
 def print_title() -> None:
+    """Print the ASCII art title of the application."""
     amazing_art = r"""
   █████╗ ███╗   ███╗  █████╗ ███████╗ ██╗███╗   ██╗  ██████╗
  ██╔══██╗████╗ ████║ ██╔══██╗╚══███╔╝ ██║████╗  ██║ ██╔════╝
@@ -16,6 +24,7 @@ def print_title() -> None:
 
 
 def print_menu() -> None:
+    """Display the interactive menu options for the user."""
     print("                   A _ M A Z E _ I N G\n")
     print('1. Generate a new maze', end='   ')
     print('2. Show/hide path from entry to exit')
@@ -25,8 +34,23 @@ def print_menu() -> None:
     print('6. Quit\n')
 
 
-# mypy R8: 'maze' typed as Any to avoid circular import with MazeGenerator
 def check_entry(x: int, y: int, maze: Any) -> str:
+    """Return the correct character for entry, exit, or path cells.
+
+    Priority:
+    - Entry cell (green)
+    - Exit cell (red)
+    - Path cell (if path display is enabled)
+    - Default wall cell
+
+    Args:
+        x: X coordinate.
+        y: Y coordinate.
+        maze: Maze object containing entry, exit, and path data.
+
+    Returns:
+        str: ANSI colored character representing the cell.
+    """
     if (x, y) == maze.entry:
         return '\033[32m█\033[0m'
     elif (x, y) == maze.exit:
@@ -37,19 +61,55 @@ def check_entry(x: int, y: int, maze: Any) -> str:
 
 
 def check_path(x: int, y: int, maze: Any) -> str:
+    """Return the character representing a path cell if applicable.
+
+    Args:
+        x: X coordinate.
+        y: Y coordinate.
+        maze: Maze object containing path information.
+
+    Returns:
+        str: Path character or wall character.
+    """
     if (x, y) in maze.path_solve and maze.is_path:
         return '░'
     return '\033[38;5;235m█\033[0m'
 
 
-# mypy R8: returns the pattern color or None when not a pattern cell
 def check_pattern(x: int, y: int, maze: Any, color: str) -> str | None:
+    """Return pattern color if the cell belongs to a pattern.
+
+    Args:
+        x: X coordinate.
+        y: Y coordinate.
+        maze: Maze object containing pattern cells.
+        color: Color used for pattern rendering.
+
+    Returns:
+        Optional[str]: Pattern color if cell is part of pattern, else None.
+    """
     if (x, y) in maze.pattern_cells:
         return color
     return None
 
 
 def print_maze(maze: Any, color: str, color_pattern: str) -> None:
+    """Render the maze in the terminal using ANSI colors.
+
+    The maze is printed line by line, taking into account:
+    - walls encoded in each cell
+    - entry and exit positions
+    - optional shortest path display
+    - optional embedded pattern rendering
+
+    Args:
+        maze: Maze object containing grid and metadata.
+        color: Primary color used for maze walls.
+        color_pattern: Color used for embedded pattern cells.
+
+    Returns:
+        None
+    """
     line_bottom = ''
     for y in range(maze.height):
         line0 = ''
